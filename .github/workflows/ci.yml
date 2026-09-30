@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # ROS-free: C++ layer core, simulator, metrics, perception math.
+  core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: make setup
+      - run: make test
+
+  # Full colcon build + tests inside the official Jazzy image.
+  ros:
+    runs-on: ubuntu-24.04
+    container: osrf/ros:jazzy-desktop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y ros-jazzy-navigation2 ros-jazzy-nav2-mppi-controller ros-jazzy-robot-localization \
+            ros-jazzy-slam-toolbox ros-jazzy-vision-msgs ros-jazzy-ros-gz ros-jazzy-twist-mux \
+            python3-scipy python3-matplotlib python3-opencv python3-pytest
+      - name: Build and test
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+          colcon test --packages-select cc_costmap_layers cc_perception cc_eval
+          colcon test-result --verbose

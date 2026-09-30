@@ -1,0 +1,11 @@
+build/
+install/
+log/
+sim/build/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+results/gazebo/bags/
+models/*.onnx
+models/*.pt

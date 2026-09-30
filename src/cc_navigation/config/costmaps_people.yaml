@@ -1,0 +1,95 @@
+# Config D: as C plus people-aware inflation. A person's cost reaches 1.2 m
+# from their surface (vs 0.55 m for objects) with a gentler decay, so paths
+# keep social distance but can still squeeze past in a narrow corridor.
+# Same values as the surrogate (sim/ccsim/costmap.py PERSON_AWARE).
+# Keep the local and global blocks identical.
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      plugins: ["obstacle_layer", "perception_layer", "inflation_layer"]
+      perception_layer:
+        plugin: "cc_costmap_layers::PerceptionLayer"
+        enabled: true
+        detections_topic: /perception/detections
+        transform_tolerance: 0.2
+        min_score: 0.4
+        person:
+          enabled: true
+          inflation_radius: 1.2
+          cost_scaling_factor: 1.5
+          persistence: 0.5
+          min_hits: 1
+          association_gate: 0.6
+        cart:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 5.0
+          min_hits: 2
+          association_gate: 0.4
+        low_obstacle:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 10.0
+          min_hits: 2
+          association_gate: 0.4
+        glass:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 20.0
+          min_hits: 2
+          association_gate: 0.6
+        unknown:
+          enabled: false
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 1.0
+          min_hits: 3
+          association_gate: 0.4
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      plugins: ["static_layer", "obstacle_layer", "perception_layer", "inflation_layer"]
+      perception_layer:
+        plugin: "cc_costmap_layers::PerceptionLayer"
+        enabled: true
+        detections_topic: /perception/detections
+        transform_tolerance: 0.2
+        min_score: 0.4
+        person:
+          enabled: true
+          inflation_radius: 1.2
+          cost_scaling_factor: 1.5
+          persistence: 0.5
+          min_hits: 1
+          association_gate: 0.6
+        cart:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 5.0
+          min_hits: 2
+          association_gate: 0.4
+        low_obstacle:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 10.0
+          min_hits: 2
+          association_gate: 0.4
+        glass:
+          enabled: true
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 20.0
+          min_hits: 2
+          association_gate: 0.6
+        unknown:
+          enabled: false
+          inflation_radius: 0.55
+          cost_scaling_factor: 3.0
+          persistence: 1.0
+          min_hits: 3
+          association_gate: 0.4

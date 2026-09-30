@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>cc_navigation</name>
+  <version>0.1.0</version>
+  <description>Nav2 parameters (shared base + per-config overlays), behavior tree and bringup for CorridorCourier.</description>
+  <maintainer email="peterimanishkumar@gmail.com">CorridorCourier</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>cc_gazebo</exec_depend>
+  <exec_depend>cc_localization</exec_depend>
+  <exec_depend>cc_perception</exec_depend>
+  <exec_depend>cc_costmap_layers</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_mppi_controller</exec_depend>
+  <exec_depend>nav2_smac_planner</exec_depend>
+  <exec_depend>dwb_core</exec_depend>
+  <exec_depend>twist_mux</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

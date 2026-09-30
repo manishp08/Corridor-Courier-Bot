@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!-- Gazebo Harmonic (gz-sim 8) sensor and actuator plugins. Topics are
+     bridged to ROS by cc_gazebo/config/bridge.yaml. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="courier_gazebo" params="wheel_separation wheel_radius">
+
+    <gazebo>
+      <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+        <left_joint>left_wheel_joint</left_joint>
+        <right_joint>right_wheel_joint</right_joint>
+        <!-- Kinematic parameters used for odometry (deliberately a little off, see urdf). -->
+        <wheel_separation>${wheel_separation}</wheel_separation>
+        <wheel_radius>${wheel_radius}</wheel_radius>
+        <max_linear_acceleration>1.0</max_linear_acceleration>
+        <max_angular_acceleration>2.0</max_angular_acceleration>
+        <topic>/cmd_vel</topic>
+        <odom_topic>/odom/wheel</odom_topic>
+        <tf_topic>/odom/wheel_tf</tf_topic>
+        <frame_id>odom</frame_id>
+        <child_frame_id>base_footprint</child_frame_id>
+        <odom_publish_frequency>50</odom_publish_frequency>
+      </plugin>
+      <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+        <topic>/joint_states</topic>
+      </plugin>
+      <!-- Ground truth for evaluation only (never used by the stack). -->
+      <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>base_footprint</robot_base_frame>
+        <odom_topic>/ground_truth/odom</odom_topic>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <dimensions>2</dimensions>
+      </plugin>
+    </gazebo>
+
+    <gazebo reference="lidar_link">
+      <sensor name="lidar" type="gpu_lidar">
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <topic>/scan</topic>
+        <update_rate>10</update_rate>
+        <always_on>true</always_on>
+        <!-- Glass panes carry visibility flag 0x2; the LiDAR ignores them
+             (specular glass returns almost nothing). -->
+        <visibility_mask>4294967293</visibility_mask>
+        <lidar>
+          <scan>
+            <horizontal><samples>360</samples><resolution>1</resolution>
+              <min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal>
+          </scan>
+          <range><min>0.12</min><max>8.0</max><resolution>0.01</resolution></range>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+
+    <gazebo reference="imu_link">
+      <sensor name="imu" type="imu">
+        <gz_frame_id>imu_link</gz_frame_id>
+        <topic>/imu/data</topic>
+        <update_rate>100</update_rate>
+        <always_on>true</always_on>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.003</stddev><bias_mean>0.001</bias_mean><bias_stddev>0.0002</bias_stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.003</stddev><bias_mean>0.001</bias_mean><bias_stddev>0.0002</bias_stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.003</stddev><bias_mean>0.001</bias_mean><bias_stddev>0.0002</bias_stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </gazebo>
+
+    <gazebo reference="camera_link">
+      <sensor name="rgbd" type="rgbd_camera">
+        <gz_frame_id>camera_optical_frame</gz_frame_id>
+        <topic>/camera</topic>
+        <update_rate>15</update_rate>
+        <always_on>true</always_on>
+        <camera>
+          <horizontal_fov>1.5184</horizontal_fov>
+          <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.2</near><far>10.0</far></clip>
+          <depth_camera><clip><near>0.2</near><far>10.0</far></clip></depth_camera>
+          <noise><type>gaussian</type><mean>0</mean><stddev>0.007</stddev></noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>

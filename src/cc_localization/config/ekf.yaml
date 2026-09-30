@@ -1,0 +1,70 @@
+# robot_localization EKF: fuses wheel-odometry twist and IMU yaw rate and
+# publishes odom -> base_footprint (ablation configs B-D).
+#
+# Why these choices (the numbers are the ones validated in the drift study,
+# sim/ccsim/localization.py EKF_TUNED, see docs/RESULTS.md "EKF drift"):
+#  * Fuse *velocities*, not wheel yaw: absolute yaw from two sources that
+#    drift differently makes the filter jump.
+#  * Wheel yaw-rate variance 0.08^2: encoders over-report rotation when the
+#    wheels scrub on polished floors, so the filter must trust the gyro more.
+#    The gz diff-drive plugin publishes ~1e-9 covariances; left as-is the
+#    filter ignores the IMU ("untuned" row in the drift table: no gain at all).
+#  * Gyro variance 0.005^2 is only valid because the IMU bias is removed at
+#    start-up (robot still for 2 s). With an uncalibrated gyro this setting
+#    makes fusion WORSE than wheels alone (drift table, last block).
+#  * Process noise on vx / vyaw ~ acceleration limits (1 m/s^2, 2 rad/s^2).
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    odom0: /odom/wheel_cov        # /odom/wheel with covariances set by covariance_relay
+    #            x      y      z      roll   pitch  yaw
+    #            vx     vy     vz     vroll  vpitch vyaw
+    #            ax     ay     az
+    odom0_config: [false, false, false, false, false, false,
+                   true,  true,  false, false, false, true,
+                   false, false, false]
+    odom0_differential: false
+    odom0_queue_size: 10
+
+    imu0: /imu/data_cov           # bias-corrected, covariance set by covariance_relay
+    imu0_config: [false, false, false, false, false, false,
+                  false, false, false, false, false, true,
+                  false, false, false]
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true
+    imu0_queue_size: 20
+
+    process_noise_covariance: [1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 1e-6, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 1e-6, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-6, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-6, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4.0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-3, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-3, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-3]
+
+# Covariances the stack writes onto the incoming messages before fusion
+# (cc_localization/scripts/covariance_relay.py), because neither the gz
+# diff-drive plugin nor the gz IMU sensor publishes meaningful ones.
+covariance_relay:
+  ros__parameters:
+    use_sim_time: true
+    wheel_vx_variance: 0.0004      # 0.02^2
+    wheel_vyaw_variance: 0.0064    # 0.08^2
+    gyro_vyaw_variance: 0.000025   # 0.005^2

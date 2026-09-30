@@ -1,0 +1,156 @@
+<?xml version="1.0"?>
+<!-- CorridorCourier: differential-drive indoor delivery robot.
+     Sensor heights are deliberate: the 2D LiDAR scans at 0.18 m, so pallets
+     and low boxes (< 0.15 m) sit below the scan plane; the RGB-D camera sits
+     on a mast at 0.45 m pitched 15 deg down to see the floor ahead. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="courier">
+
+  <xacro:arg name="use_sim" default="true"/>
+  <!-- Odometry calibration error injected into the diff-drive plugin's
+       kinematic parameters (real robots are never perfectly calibrated;
+       an effective wheelbase shorter than nominal is what turning scrub on
+       polished floors looks like). 0 = perfect odometry. -->
+  <xacro:arg name="wheel_radius_error" default="0.01"/>
+  <xacro:arg name="wheel_separation_error" default="-0.04"/>
+
+  <xacro:property name="base_radius" value="0.25"/>
+  <xacro:property name="base_height" value="0.12"/>
+  <xacro:property name="base_z" value="0.05"/>
+  <xacro:property name="wheel_radius" value="0.05"/>
+  <xacro:property name="wheel_width" value="0.03"/>
+  <xacro:property name="wheel_separation" value="0.40"/>
+  <xacro:property name="lidar_z" value="0.18"/>
+  <xacro:property name="camera_x" value="0.20"/>
+  <xacro:property name="camera_z" value="0.45"/>
+  <xacro:property name="camera_pitch" value="0.2618"/>
+
+  <xacro:macro name="cylinder_inertia" params="m r h">
+    <inertia ixx="${m*(3*r*r+h*h)/12}" ixy="0" ixz="0" iyy="${m*(3*r*r+h*h)/12}" iyz="0" izz="${m*r*r/2}"/>
+  </xacro:macro>
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertia ixx="${m*(y*y+z*z)/12}" ixy="0" ixz="0" iyy="${m*(x*x+z*z)/12}" iyz="0" izz="${m*(x*x+y*y)/12}"/>
+  </xacro:macro>
+
+  <material name="body"><color rgba="0.15 0.35 0.65 1"/></material>
+  <material name="dark"><color rgba="0.1 0.1 0.1 1"/></material>
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${base_height/2}"/>
+      <geometry><cylinder radius="${base_radius}" length="${base_height}"/></geometry>
+      <material name="body"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${base_height/2}"/>
+      <geometry><cylinder radius="${base_radius}" length="${base_height}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${base_height/2}"/>
+      <mass value="15.0"/>
+      <xacro:cylinder_inertia m="15.0" r="${base_radius}" h="${base_height}"/>
+    </inertial>
+  </link>
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${base_z}"/>
+  </joint>
+
+  <!-- Delivery bin + camera mast -->
+  <link name="bin_link">
+    <visual><geometry><box size="0.30 0.34 0.22"/></geometry><material name="body"/></visual>
+    <collision><geometry><box size="0.30 0.34 0.22"/></geometry></collision>
+    <inertial><mass value="2.0"/><xacro:box_inertia m="2.0" x="0.3" y="0.34" z="0.22"/></inertial>
+  </link>
+  <joint name="bin_joint" type="fixed">
+    <parent link="base_link"/><child link="bin_link"/>
+    <origin xyz="-0.05 0 ${base_height + 0.11 + 0.08}"/>
+  </joint>
+
+  <xacro:macro name="wheel" params="side y">
+    <link name="${side}_wheel_link">
+      <visual>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="dark"/>
+      </visual>
+      <collision>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+      <inertial>
+        <origin rpy="${pi/2} 0 0"/>
+        <mass value="0.5"/>
+        <xacro:cylinder_inertia m="0.5" r="${wheel_radius}" h="${wheel_width}"/>
+      </inertial>
+    </link>
+    <joint name="${side}_wheel_joint" type="continuous">
+      <parent link="base_link"/><child link="${side}_wheel_link"/>
+      <origin xyz="0 ${y} ${wheel_radius - base_z}"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+    <gazebo reference="${side}_wheel_link">
+      <!-- Polished floor: modest friction so hard turns and accelerations slip. -->
+      <mu1>0.6</mu1><mu2>0.6</mu2>
+    </gazebo>
+  </xacro:macro>
+  <xacro:wheel side="left" y="${wheel_separation/2}"/>
+  <xacro:wheel side="right" y="${-wheel_separation/2}"/>
+
+  <xacro:macro name="caster" params="name x">
+    <link name="${name}_link">
+      <visual><geometry><sphere radius="0.025"/></geometry><material name="dark"/></visual>
+      <collision><geometry><sphere radius="0.025"/></geometry></collision>
+      <inertial><mass value="0.1"/><inertia ixx="2.5e-5" ixy="0" ixz="0" iyy="2.5e-5" iyz="0" izz="2.5e-5"/></inertial>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/><child link="${name}_link"/>
+      <origin xyz="${x} 0 ${0.025 - base_z}"/>
+    </joint>
+    <gazebo reference="${name}_link"><mu1>0.0</mu1><mu2>0.0</mu2></gazebo>
+  </xacro:macro>
+  <xacro:caster name="front_caster" x="0.18"/>
+  <xacro:caster name="rear_caster" x="-0.18"/>
+
+  <!-- 2D LiDAR -->
+  <link name="lidar_link">
+    <visual><geometry><cylinder radius="0.035" length="0.04"/></geometry><material name="dark"/></visual>
+    <inertial><mass value="0.2"/><xacro:cylinder_inertia m="0.2" r="0.035" h="0.04"/></inertial>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_footprint"/><child link="lidar_link"/>
+    <origin xyz="0 0 ${lidar_z}"/>
+  </joint>
+
+  <!-- IMU at the rotation centre -->
+  <link name="imu_link">
+    <inertial><mass value="0.01"/><inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/></inertial>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/><child link="imu_link"/>
+    <origin xyz="0 0 0.02"/>
+  </joint>
+
+  <!-- RGB-D camera (D435-class): mast + optical frames -->
+  <link name="camera_link">
+    <visual><geometry><box size="0.025 0.09 0.025"/></geometry><material name="dark"/></visual>
+    <inertial><mass value="0.07"/><xacro:box_inertia m="0.07" x="0.025" y="0.09" z="0.025"/></inertial>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_footprint"/><child link="camera_link"/>
+    <origin xyz="${camera_x} 0 ${camera_z}" rpy="0 ${camera_pitch} 0"/>
+  </joint>
+  <link name="camera_optical_frame"/>
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/><child link="camera_optical_frame"/>
+    <origin rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <xacro:if value="$(arg use_sim)">
+    <xacro:include filename="$(find cc_description)/urdf/gazebo.xacro"/>
+    <xacro:courier_gazebo wheel_separation="${wheel_separation * (1 + $(arg wheel_separation_error))}"
+                          wheel_radius="${wheel_radius * (1 + $(arg wheel_radius_error))}"/>
+  </xacro:if>
+</robot>

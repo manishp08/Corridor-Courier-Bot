@@ -1,0 +1,5 @@
+<library path="cc_costmap_layers">
+  <class type="cc_costmap_layers::PerceptionLayer" base_class_type="nav2_costmap_2d::Layer">
+    <description>Class-aware costs from camera detections (people, carts, low obstacles, glass).</description>
+  </class>
+</library>
