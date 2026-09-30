@@ -44,15 +44,16 @@ class Ekf:
         self.x = np.zeros(5)
         self.P = np.diag([1e-6, 1e-6, 1e-6, 1e-2, 1e-2])
 
-    def predict(self, dt):
+    def _propagate_pose(self, dt):
+        """Integrate the pose over the interval with the (just updated) velocities."""
         x, y, th, v, w = self.x
-        self.x = np.array([x + v * np.cos(th) * dt, y + v * np.sin(th) * dt, wrap(th + w * dt), v, w])
+        thm = th + 0.5 * w * dt
+        self.x[:3] = [x + v * np.cos(thm) * dt, y + v * np.sin(thm) * dt, wrap(th + w * dt)]
         F = np.eye(5)
-        F[0, 2], F[0, 3] = -v * np.sin(th) * dt, np.cos(th) * dt
-        F[1, 2], F[1, 3] = v * np.cos(th) * dt, np.sin(th) * dt
+        F[0, 2], F[0, 3], F[0, 4] = -v * np.sin(thm) * dt, np.cos(thm) * dt, -0.5 * v * np.sin(thm) * dt * dt
+        F[1, 2], F[1, 3], F[1, 4] = v * np.cos(thm) * dt, np.sin(thm) * dt, 0.5 * v * np.cos(thm) * dt * dt
         F[2, 4] = dt
-        Q = np.diag([1e-6 * dt, 1e-6 * dt, 1e-6 * dt, self.p.q_v * dt, self.p.q_w * dt])
-        self.P = F @ self.P @ F.T + Q
+        self.P = F @ self.P @ F.T + np.diag([1e-6 * dt, 1e-6 * dt, 1e-6 * dt, 0.0, 0.0])
 
     def _update_scalar(self, idx, z, r):
         S = self.P[idx, idx] + r
@@ -62,11 +63,18 @@ class Ekf:
         self.P = self.P - np.outer(K, self.P[idx, :])
 
     def update(self, v, w, dt, gyro=None):
-        self.predict(dt)
+        """Wheel and gyro rates are averages over the last interval, so the
+        velocity states are corrected first and the pose is then integrated
+        with them. (robot_localization runs at 50 Hz with 50-100 Hz inputs,
+        where the ordering hardly matters; at the 10 Hz of the surrogate's
+        control loop predicting with stale velocities adds ~5 cm of lag.)"""
+        self.P[3, 3] += self.p.q_v * dt          # velocity random walk
+        self.P[4, 4] += self.p.q_w * dt
         self._update_scalar(3, v, self.p.r_wheel_v)
         self._update_scalar(4, w, self.p.r_wheel_w)
         if gyro is not None:
             self._update_scalar(4, gyro, self.p.r_gyro_w)
+        self._propagate_pose(dt)
         return self.x[:3].copy()
 
     @property

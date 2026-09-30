@@ -63,6 +63,7 @@ def summarize(rs):
         "success": wilson_ci(s, n),
         "collisions": bootstrap_ci(col(rs, "collisions")),
         "clearance": bootstrap_ci(col(rs, "min_clearance_people")),
+        "intrusion": bootstrap_ci(col(rs, "personal_space_s")),
         "time": bootstrap_ci(col(rs, "time_to_goal")),
         "path": bootstrap_ci(np.where(col(rs, "success") > 0, col(rs, "path_length"), np.nan)),
         "ate": bootstrap_ci(col(rs, "ate_rmse"), stat=np.median),
@@ -181,7 +182,7 @@ def build_report(results_dir, out_md, title_note=None):
         "core as the Nav2 plugin and models the specific failure modes under study (objects below the "
         "LiDAR plane, specular glass, pedestrians, wheel slip, gyro bias), but it is a simplified "
         "world: treat the numbers as evidence about the *mechanisms*, and re-run the identical "
-        "protocol in Gazebo (`ros2 launch cc_eval ablation.launch.py`) before quoting them as "
+        "protocol in Gazebo (`ros2 run cc_eval run_ablation`) before quoting them as "
         "robot results. The CSV schema and this report generator are shared, so the Gazebo run "
         "produces the same tables.\n"))
     n_seeds = len({r["seed"] for r in rows})
@@ -196,12 +197,13 @@ def build_report(results_dir, out_md, title_note=None):
     main = [r for r in rows if r["controller"] == main_ctl]
     pooled = _pooled(main, configs, nav_worlds)
     L.append(f"## Headline (controller: {main_ctl.upper()}, worlds 1–4 pooled)\n")
-    L.append("| Config | Goal success | Collisions / run | Min. clearance to people (m) | Recoveries / run |")
-    L.append("|---|---|---|---|---|")
+    L.append("| Config | Goal success | Collisions / run | Min. clearance to people (m) | "
+             "Time within 0.5 m of people (s) | Recoveries / run |")
+    L.append("|---|---|---|---|---|---|")
     for c in configs:
         s = pooled[c]
         L.append(f"| {CONFIG_LABELS[c]} | {_ci(s['success'], pct=True)} % | {_ci(s['collisions'])} | "
-                 f"{_ci(s['clearance'])} | {_ci(s['recoveries'])} |")
+                 f"{_ci(s['clearance'])} | {_ci(s['intrusion'])} | {_ci(s['recoveries'])} |")
     headline = {}
     if "A" in pooled and "D" in pooled:
         a, d = pooled["A"], pooled["D"]
@@ -280,6 +282,27 @@ def build_report(results_dir, out_md, title_note=None):
                 s = summarize([r for r in rows if r["controller"] == ctl and r["config"] == c and r["world"] in nav_worlds])
                 L.append(f"| {c} | {ctl.upper()} | {_ci(s['success'], pct=True)} | {_ci(s['collisions'])} | "
                          f"{_ci(s['clearance'])} | {_ci(s['time'], 1)} | {_fmt(s['cpu'], 1)} |")
+        L.append("")
+
+    # ------------------------------------------------------------ people
+    if "walking_actors" in worlds and "C" in configs and "D" in configs:
+        L.append("## People-aware inflation (D vs C, walking-people world)\n")
+        L.append("Paired by seed, Wilcoxon signed-rank. *Time within 0.5 m* is the total time the robot's surface "
+                 "was within 0.5 m of a person's; it was added after the first full run because the minimum "
+                 "clearance (a single worst moment per run) turned out to be too noisy to separate C from D.\n")
+        L.append("| Controller | Metric | C | D | p |")
+        L.append("|---|---|---|---|---|")
+        for ctl in controllers:
+            gc = sorted([r for r in rows if r["controller"] == ctl and r["world"] == "walking_actors" and r["config"] == "C"], key=lambda r: r["seed"])
+            gd = sorted([r for r in rows if r["controller"] == ctl and r["world"] == "walking_actors" and r["config"] == "D"], key=lambda r: r["seed"])
+            if [r["seed"] for r in gc] != [r["seed"] for r in gd]:
+                continue
+            for key, label in (("min_clearance_people", "Min. clearance (m), mean"),
+                               ("personal_space_s", "Time within 0.5 m (s), mean"),
+                               ("collisions_people", "Person contacts / run"),
+                               ("time_to_goal", "Time to goal (s)")):
+                a, b = col(gc, key), col(gd, key)
+                L.append(f"| {ctl.upper()} | {label} | {np.nanmean(a):.2f} | {np.nanmean(b):.2f} | {wilcoxon_paired(a, b):.3g} |")
         L.append("")
 
     # ------------------------------------------------------------ localization

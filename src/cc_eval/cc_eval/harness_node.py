@@ -29,6 +29,7 @@ from .metrics import ate_rmse, count_contacts, path_length
 from .results_io import FIELDS, write_rows
 
 ROBOT_RADIUS = 0.25
+PERSONAL_SPACE = 0.5
 BAG_TOPICS = ["/tf", "/tf_static", "/scan", "/amcl_pose", "/ground_truth/odom", "/odometry/filtered",
               "/odom/wheel", "/imu/data", "/perception/detections", "/cmd_vel", "/plan",
               "/localization/lost", "/perception/latency_ms"]
@@ -86,6 +87,8 @@ class Harness(BasicNavigator):
         self.samples = []          # (t, gt_x, gt_y, gt_yaw, est_x, est_y, est_yaw)
         self.contacts = []
         self.min_clear = math.inf
+        self.intrusion_s = 0.0
+        self.last_t = None
         self.latency = []
         self.lost_events = 0
         self.create_subscription(Odometry, "/ground_truth/odom", self.on_gt, 20)
@@ -113,11 +116,18 @@ class Harness(BasicNavigator):
         ids |= {("wall", int(k)) for k in np.flatnonzero(seg_dist(p, self.m["walls"]) < r)}
         ids |= {("glass", int(k)) for k in np.flatnonzero(seg_dist(p, self.m["glass"]) < r)}
         ids |= {(o["kind"], k) for k, o in enumerate(self.m["objects"]) if box_dist(p, o) < r}
+        dt = 0.0 if self.last_t is None else t - self.last_t
+        self.last_t = t
+        gaps = []
         for k, a in enumerate(self.actors):
             d = float(np.linalg.norm(a.position(t) - p)) - ROBOT_RADIUS - a.radius
-            self.min_clear = min(self.min_clear, d)
+            gaps.append(d)
             if d < 0:
                 ids.add(("person", k))
+        if gaps:
+            self.min_clear = min(self.min_clear, min(gaps))
+            if min(gaps) < PERSONAL_SPACE:
+                self.intrusion_s += dt
         self.contacts.append(ids)
         if self.belief is not None:
             self.samples.append((t, *self.gt, *self.belief))
@@ -200,6 +210,7 @@ class Harness(BasicNavigator):
             "path_length": round(path_length(S[:, 1:3]), 3) if len(S) else math.nan,
             "collisions": contact_events, "collisions_static": contact_events - people, "collisions_people": people,
             "min_clearance_people": round(self.min_clear, 3) if self.actors else math.nan,
+            "personal_space_s": round(self.intrusion_s, 2) if self.actors else math.nan,
             "recoveries": recoveries,
             "ate_rmse": round(ate_rmse(S[:, 4:6], S[:, 1:3]), 4) if len(S) else math.nan,
             "final_goal_error": round(final_err, 3),

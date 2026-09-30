@@ -4,7 +4,8 @@ import math
 
 FIELDS = [
     "world", "config", "controller", "seed", "success", "status", "time_to_goal", "path_length",
-    "collisions", "collisions_static", "collisions_people", "min_clearance_people", "recoveries",
+    "collisions", "collisions_static", "collisions_people", "min_clearance_people", "personal_space_s",
+    "recoveries",
     "ate_rmse", "final_goal_error", "nav_cpu_ms", "perception_layer_ms", "global_relocalizations",
     "relocalization_time", "sim_time",
 ]

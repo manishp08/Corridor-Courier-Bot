@@ -9,3 +9,4 @@ __pycache__/
 results/gazebo/bags/
 models/*.onnx
 models/*.pt
+results/*.log

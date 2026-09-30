@@ -57,7 +57,9 @@ ros2 launch cc_navigation bringup.launch.py world:=kidnapped ablation:=B
 ros2 run cc_eval harness --ros-args -p use_sim_time:=true -p world:=kidnapped -p config:=B -p bag_dir:=bags
 evo_ape tum bags/kidnapped_B_dwb_1000/gt.tum bags/kidnapped_B_dwb_1000/est.tum -p
 ```
-**Pass:** the median ATE is below 0.15 m in worlds 1–4, and the robot re-localizes after the kidnap.
+**Pass:** the median ATE is below 0.15 m in the room-scale worlds (2, 3), and the robot re-localizes after the kidnap.
+**Result so far:** the room-scale worlds pass (0.035–0.051 m). The corridor worlds do not: 0.20–0.32 m,
+because position along a featureless corridor is unobservable. Kidnap recovery succeeded in 43–60% of runs.
 **Status:** Surrogate ✔ for the AMCL part (ATE and kidnap tables in RESULTS.md). The surrogate uses a walls-only
 reference map (`src/cc_localization/maps/*`, made by `make_maps.py`) in place of the slam_toolbox map. Gazebo:
 the mapping pass is still to run.
@@ -69,8 +71,10 @@ ros2 run cc_eval run_ablation --seeds 30 --configs A     # Gazebo baseline first
 ```
 **Pass:** the harness writes one CSV row per episode (schema in `cc_eval/results_io.py`) and a rosbag.
 `make report` or `ros2 run cc_eval report <dir> <out.md>` turns the CSV into tables with confidence intervals.
-Config A reaches the goal in the empty corridor in 100% of seeds.
-**Status:** Surrogate ✔. Gazebo harness written, not run here.
+Config A reaches the goal in the empty corridor (control).
+**Status:** Surrogate ✔. A reached the goal in 93% (DWB) and 97% (MPPI) of corridor seeds. The failures
+came from AMCL losing position along the featureless corridor, which happens in every config. Gazebo harness
+written, not run here.
 
 ## 6. Perception and the costmap layer
 ```bash

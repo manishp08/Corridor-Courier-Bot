@@ -7,7 +7,7 @@ SEEDS ?= 30
 WORKERS ?= $(shell nproc)
 export PYTHONPATH := $(CURDIR)/sim:$(CURDIR)/src/cc_eval:$(CURDIR)/src/cc_perception:$(PYTHONPATH)
 
-.PHONY: setup lib test test-fast results drift ablation demo report worlds maps clean \
+.PHONY: setup lib test test-fast results drift ablation demo report worlds model latency clean \
         ros-build ros-test docker docker-run
 
 setup:
@@ -42,6 +42,14 @@ results: lib drift ablation demo report
 worlds:                                ## regenerate Gazebo SDF worlds + manifests from sim/ccsim/world.py
 	$(PY) src/cc_gazebo/scripts/generate_worlds.py
 	$(PY) src/cc_localization/scripts/make_maps.py
+
+model:                                 ## export stock YOLOv8n (COCO) to ONNX; needs `pip install ultralytics`
+	mkdir -p models && cd models && yolo export model=yolov8n.pt format=onnx imgsz=640
+
+latency: model                         ## perception latency benchmark -> results/perception_latency.md
+	$(PY) -m cc_perception.benchmark --model models/yolov8n.onnx --frames 200 \
+	    --image $$($(PY) -c "import ultralytics,os;print(os.path.join(os.path.dirname(ultralytics.__file__),'assets','bus.jpg'))") \
+	    --out results/perception_latency.md
 
 clean:
 	rm -rf sim/build .pytest_cache

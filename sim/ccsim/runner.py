@@ -12,6 +12,7 @@ from .sensors import CameraDetector, Gyro, Lidar, WheelEncoders
 from .world import ROBOT_RADIUS, make_world
 
 DT = 0.1
+PERSONAL_SPACE = 0.5   # m, surface to surface
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,7 @@ def run_episode(world_name, config, seed, controller="dwb", nav=NavParams(), rec
     in_contact = set()
     collisions = {"static": 0, "people": 0}
     min_clear_people = np.inf
+    intrusion_s = 0.0
     true_len = 0.0
     err_sq = []
     nav_ms, layer_ms = [], []
@@ -261,7 +263,10 @@ def run_episode(world_name, config, seed, controller="dwb", nav=NavParams(), rec
         in_contact = now_contacts
         if len(actors_now):
             d = np.hypot(actors_now[:, 0] - robot.pose[0], actors_now[:, 1] - robot.pose[1])
-            min_clear_people = min(min_clear_people, float(d.min() - ROBOT_RADIUS - world.actors[0].radius))
+            gap = float(d.min() - ROBOT_RADIUS - world.actors[0].radius)
+            min_clear_people = min(min_clear_people, gap)
+            if gap < PERSONAL_SPACE:
+                intrusion_s += DT
         e = np.hypot(*(belief[:2] - robot.pose[:2]))
         err_sq.append(e * e)
         if kidnapped and reloc_time is None:
@@ -287,6 +292,7 @@ def run_episode(world_name, config, seed, controller="dwb", nav=NavParams(), rec
         "collisions": collisions["static"] + collisions["people"],
         "collisions_static": collisions["static"], "collisions_people": collisions["people"],
         "min_clearance_people": round(min_clear_people, 3) if np.isfinite(min_clear_people) else float("nan"),
+        "personal_space_s": round(intrusion_s, 2) if len(world.actors) else float("nan"),
         "recoveries": recoveries,
         "ate_rmse": round(float(np.sqrt(np.mean(err_sq))), 4) if err_sq else float("nan"),
         "final_goal_error": round(true_err, 3),

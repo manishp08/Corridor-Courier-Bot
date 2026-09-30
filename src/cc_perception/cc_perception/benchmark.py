@@ -50,7 +50,7 @@ def main():
         f"Model `{a.model.split('/')[-1]}`, input {a.size}×{a.size}, {a.frames} frames of "
         f"{rgb.shape[1]}×{rgb.shape[0]}, onnxruntime on `{platform.processor() or platform.machine()}` "
         f"({'default' if not a.threads else a.threads} threads). "
-        f"Input: {'`' + a.image + '`' if a.image else 'synthetic noise frame'}.\n",
+        f"Input: {'`' + a.image.split('/')[-1] + '` (Ultralytics sample image)' if a.image else 'synthetic noise frame'}.\n",
         "| Stage | Median (ms) | p95 (ms) |",
         "|---|---|---|",
         f"| Letterbox + inference + NMS | {q(infer, 50):.1f} | {q(infer, 95):.1f} |",
