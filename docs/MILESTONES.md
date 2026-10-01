@@ -38,7 +38,7 @@ scan (they sit below its plane), and the camera image shows them.
 ## 3. EKF: 20 m loop drift, with and without the IMU
 ```bash
 make drift                                                    # surrogate, 30 seeds, paired
-ros2 run cc_eval drift_test --ros-args -p use_sim_time:=true  # Gazebo, one run per call
+ros2 run cc_eval drift_test --ros-args -p use_sim_time:=true -p side:=2.5 -p loops:=2   # Gazebo, glass_wall world
 ```
 **Pass:** the tuned EKF has lower final error than wheel-only odometry. The deliverable is the number.
 **Status:** Surrogate ✔. Final error fell from 1.19 m to 0.26 m, about 78% less (see RESULTS.md, "EKF drift").

@@ -1,13 +1,13 @@
 """Milestone 3 in Gazebo: drive a 20 m square open-loop and measure drift.
 
-  ros2 launch cc_gazebo sim.launch.py world:=empty_corridor    # any open world
+  ros2 launch cc_gazebo sim.launch.py world:=glass_wall
   ros2 launch cc_localization localization.launch.py ekf:=true mode:=none
-  ros2 run cc_eval drift_test --ros-args -p use_sim_time:=true -p side:=5.0
+  ros2 run cc_eval drift_test --ros-args -p use_sim_time:=true -p side:=2.5 -p loops:=2
 
 Records ground truth, raw wheel odometry and the EKF output, aligns each to
 the start pose, and prints final / max position error and yaw error for
-wheel-only vs EKF. Same protocol as sim/ccsim/drift.py. Needs ~9 m x 9 m of
-free floor: use the kidnapped world's outer loop or an empty world.
+wheel-only vs EKF. Same protocol as sim/ccsim/drift.py (20 m total). With
+side 2.5 / loops 2 it needs a free 3 m x 3 m patch; the glass_wall lobby has one.
 """
 import math
 
@@ -38,6 +38,8 @@ class DriftTest(Node):
         self.side = self.declare_parameter("side", 5.0).value
         self.v = self.declare_parameter("speed", 0.4).value
         self.w = self.declare_parameter("turn_rate", 0.6).value
+        # side x 4 x loops = total distance; e.g. side 2.5, loops 2 = 20 m in a 3 m x 3 m patch.
+        self.loops = self.declare_parameter("loops", 1).value
         self.pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self.latest = {}
         self.log = {k: [] for k in ("gt", "wheel", "ekf")}
@@ -46,7 +48,7 @@ class DriftTest(Node):
 
     def drive(self):
         plan = []
-        for _ in range(4):
+        for _ in range(4 * self.loops):
             plan += [(self.v, 0.0, self.side / self.v), (0.0, self.w, (math.pi / 2) / self.w)]
         plan.append((0.0, 0.0, 2.0))
         for v, w, dur in plan:
