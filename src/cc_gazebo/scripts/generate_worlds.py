@@ -41,7 +41,7 @@ HEADER = """<?xml version="1.0"?>
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
     <scene><ambient>0.6 0.6 0.6 1</ambient><background>0.8 0.85 0.9 1</background><shadows>false</shadows></scene>
-    <light type="directional" name="sun">
+{gui}    <light type="directional" name="sun">
       <cast_shadows>false</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
       <diffuse>0.9 0.9 0.9 1</diffuse>
@@ -61,6 +61,57 @@ HEADER = """<?xml version="1.0"?>
         </visual>
       </link>
     </model>
+"""
+
+
+HIDDEN = ('<gz-gui><property key="resizable" type="bool">false</property>'
+          '<property key="width" type="double">5</property><property key="height" type="double">5</property>'
+          '<property key="state" type="string">floating</property>'
+          '<property key="showTitleBar" type="bool">false</property></gz-gui>')
+
+
+def gui_block(start):
+    """Gazebo GUI config. Same panels as the default layout, but the 3D view
+    starts 3.5 m behind the robot and 3 m up, looking along its heading
+    (the default camera can start far from the world)."""
+    x, y, yaw = start
+    cx, cy = x - 3.5 * math.cos(yaw), y - 3.5 * math.sin(yaw)
+    hidden = "\n".join(
+        f'      <plugin filename="{f}" name="{n}">{HIDDEN}</plugin>'
+        for f, n in [("GzSceneManager", "Scene Manager"), ("InteractiveViewControl", "Interactive view control"),
+                     ("CameraTracking", "Camera Tracking"), ("MarkerManager", "Marker manager"),
+                     ("SelectEntities", "Select Entities"), ("Spawn", "Spawn Entities"),
+                     ("VisualizationCapabilities", "Visualization Capabilities")])
+    return f"""    <gui fullscreen="0">
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui><title>3D View</title><property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property></gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.4 0.4 0.4</ambient_light>
+        <background_color>0.8 0.85 0.9</background_color>
+        <camera_pose>{cx:.2f} {cy:.2f} 3.0 0 0.6 {yaw:.3f}</camera_pose>
+        <camera_clip><near>0.1</near><far>500</far></camera_clip>
+      </plugin>
+{hidden}
+      <plugin filename="WorldControl" name="World control">
+        <gz-gui><title>World control</title><property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property><property type="double" key="height">72</property>
+          <property type="double" key="z">1</property><property type="string" key="state">floating</property>
+          <anchors target="3D View"><line own="left" target="left"/><line own="bottom" target="bottom"/></anchors></gz-gui>
+        <play_pause>true</play_pause><step>true</step><start_paused>false</start_paused><use_event>true</use_event>
+      </plugin>
+      <plugin filename="WorldStats" name="World stats">
+        <gz-gui><title>World stats</title><property type="bool" key="showTitleBar">false</property>
+          <property type="bool" key="resizable">false</property><property type="double" key="height">110</property>
+          <property type="double" key="width">290</property><property type="double" key="z">1</property>
+          <property type="string" key="state">floating</property>
+          <anchors target="3D View"><line own="right" target="right"/><line own="bottom" target="bottom"/></anchors></gz-gui>
+        <sim_time>true</sim_time><real_time>true</real_time><real_time_factor>true</real_time_factor><iterations>true</iterations>
+      </plugin>
+      <plugin filename="EntityTree" name="Entity tree"></plugin>
+      <plugin filename="ComponentInspector" name="Component inspector"></plugin>
+    </gui>
 """
 
 
@@ -139,7 +190,7 @@ def actor_xml(name, a):
 
 def generate(name, seed, out_dir):
     w = make_world(name, seed)
-    parts = [HEADER.format(name=name, seed=seed)]
+    parts = [HEADER.format(name=name, seed=seed, gui=gui_block(w.start))]
     for k, seg in enumerate(w.walls):
         parts.append(segment_box(f"wall_{k}", seg, WALL_T, WALL_H, "0.75 0.75 0.72 1"))
     glass_extra = f"\n          <transparency>0.8</transparency>\n          <visibility_flags>{GLASS_VIS_FLAG}</visibility_flags>"
