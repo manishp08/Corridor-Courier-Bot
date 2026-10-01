@@ -12,8 +12,8 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition, LaunchConfigurationEquals
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.conditions import IfCondition
+from launch.substitutions import EqualsSubstitution, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -35,14 +35,14 @@ def generate_launch_description():
         Node(package='robot_localization', executable='ekf_node', name='ekf_filter_node',
              parameters=[ekf_yaml, sim], condition=IfCondition(LaunchConfiguration('ekf'))),
         Node(package='slam_toolbox', executable='async_slam_toolbox_node', name='slam_toolbox',
-             parameters=[slam_yaml, sim], condition=LaunchConfigurationEquals('mode', 'slam')),
+             parameters=[slam_yaml, sim], condition=IfCondition(EqualsSubstitution(LaunchConfiguration('mode'), 'slam'))),
         Node(package='nav2_map_server', executable='map_server', name='map_server',
-             parameters=[{'yaml_filename': map_yaml}, sim], condition=LaunchConfigurationEquals('mode', 'amcl')),
+             parameters=[{'yaml_filename': map_yaml}, sim], condition=IfCondition(EqualsSubstitution(LaunchConfiguration('mode'), 'amcl'))),
         Node(package='nav2_amcl', executable='amcl', name='amcl',
-             parameters=[amcl_yaml, sim], condition=LaunchConfigurationEquals('mode', 'amcl')),
+             parameters=[amcl_yaml, sim], condition=IfCondition(EqualsSubstitution(LaunchConfiguration('mode'), 'amcl'))),
         Node(package='nav2_lifecycle_manager', executable='lifecycle_manager', name='lifecycle_manager_localization',
              parameters=[{'autostart': True, 'node_names': ['map_server', 'amcl']}, sim],
-             condition=LaunchConfigurationEquals('mode', 'amcl')),
+             condition=IfCondition(EqualsSubstitution(LaunchConfiguration('mode'), 'amcl'))),
         Node(package='cc_localization', executable='localization_monitor.py', name='localization_monitor',
-             parameters=[sim], condition=LaunchConfigurationEquals('mode', 'amcl')),
+             parameters=[sim], condition=IfCondition(EqualsSubstitution(LaunchConfiguration('mode'), 'amcl'))),
     ])
